@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sephiroth74/git-folder",
+  "type": "object",
+  "properties": {
+    "folder": {
+      "description": "The folder's name, its whole path in a tooltip.",
+      "type": "boolean",
+      "default": true
+    },
+    "branch": {
+      "description": "The git branch of the folder's repository, or a detached head's short hash.",
+      "type": "boolean",
+      "default": true
+    },
+    "side": {
+      "description": "The side of the status bar where it shows.",
+      "type": "string",
+      "enum": ["start", "center", "end"],
+      "default": "start"
+    }
+  },
+  "additionalProperties": false
+}

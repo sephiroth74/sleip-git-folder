@@ -1,0 +1,27 @@
+[plugin]
+name = "sephiroth74/git-folder"
+version = "0.1.0"
+kind = "luau"
+api = "^0.1.6"
+license = "MIT"
+description = "The focused pane's folder and its git branch, in the window's status bar"
+repository = "https://github.com/sephiroth74/sleip-git-folder"
+keywords = ["git", "branch", "folder", "status-bar"]
+authors = ["Alessandro Crugnola"]
+
+# It activates as its view of the status bar first shows.
+[activation]
+on = ["slot:status-bar"]
+
+# The folder of the program in each window's focused pane, and the branch of
+# the git repository that holds it, which Lokyr reads without running git.
+[capabilities]
+process-read = true
+
+[contributes]
+slots = ["status-bar"]
+config-schema = "git-folder.schema.json"
+
+# At the bar's start, unless the config's `side` says otherwise.
+[contributes.status-bar]
+side = "start"
