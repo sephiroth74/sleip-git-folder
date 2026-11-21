@@ -45,6 +45,23 @@ local function rendered(host: TestHost): boolean
     return false
 end
 
+-- Whether the plugin read a pane's folder or a folder's branch since the
+-- last look.
+local function looked(host: TestHost): boolean
+    for _, read in host.reads() do
+        if type(read) == "table" and (read.working_directory ~= nil or read.git_branch ~= nil) then
+            return true
+        end
+    end
+    return false
+end
+
+-- The key of the view's first part.
+local function first_part(node: Node?): string?
+    local children: { Node } = if node ~= nil and node.children ~= nil then node.children else {}
+    return if children[1] ~= nil then children[1].key :: string else nil
+end
+
 function test.the_bar_shows_the_folder_s_name_and_its_branch(host: TestHost)
     host.set_directory(FOLDER)
     host.set_git_branch(FOLDER, "main")
@@ -64,9 +81,12 @@ function test.a_folder_out_of_a_repository_shows_its_name_alone(host: TestHost)
     assert(texts.folder == "tmp" and texts.branch == nil)
 end
 
-function test.a_pane_of_no_folder_shows_nothing(host: TestHost)
+function test.a_pane_of_no_folder_keeps_an_empty_view_at_the_bar_s_height(host: TestHost)
     host.activate()
-    assert(bar(host) == nil)
+    local node = bar(host)
+    local texts = parts(node)
+    assert(texts.folder == nil and texts.branch == nil)
+    assert(first_part(node) == "empty", first_part(node))
 end
 
 function test.the_config_takes_parts_away_and_moves_the_view(host: TestHost)
@@ -77,11 +97,16 @@ function test.the_config_takes_parts_away_and_moves_the_view(host: TestHost)
     local texts = parts(bar(host))
     assert(texts.folder == nil and texts.branch == "main")
     assert(host.status_bar_side() == "end")
-    -- Of no part left, nothing.
+    -- Of no part left, an empty view, so that the bar stays.
     host.set_config({ folder = false, branch = false })
     host.events({})
-    assert(bar(host) == nil)
+    assert(first_part(bar(host)) == "empty")
     assert(host.status_bar_side() == "start")
+    -- Out of a repository, of no folder's part, likewise.
+    host.set_config({ folder = false })
+    host.set_directory("/tmp")
+    host.events({ { kind = "pane-changed", pane = 1, tab = host.tab() } })
+    assert(first_part(bar(host)) == "empty")
 end
 
 function test.the_view_is_drawn_again_only_as_its_folder_or_branch_changes(host: TestHost)
@@ -105,6 +130,49 @@ function test.the_view_is_drawn_again_only_as_its_folder_or_branch_changes(host:
     assert(rendered(host), "the folder changed")
     texts = parts(bar(host))
     assert(texts.folder == "notes" and texts.branch == nil)
+end
+
+function test.a_command_s_end_looks_at_the_branch_again(host: TestHost)
+    host.set_directory(FOLDER)
+    host.set_git_branch(FOLDER, "main")
+    host.activate()
+    bar(host)
+    host.done()
+    -- A quick checkout, which ends before the tab's program changes.
+    host.set_git_branch(FOLDER, "feature/blocks")
+    host.events({ { kind = "command-ended", pane = 1, command = 1 } })
+    assert(rendered(host), "the branch changed")
+    assert(parts(bar(host)).branch == "feature/blocks")
+end
+
+function test.a_change_of_a_tab_behind_reads_nothing(host: TestHost)
+    host.set_directory(FOLDER)
+    host.set_git_branch(FOLDER, "main")
+    host.activate()
+    bar(host)
+    -- Another tab, behind the one that shows, its events heard.
+    local behind = host.open_tab()
+    host.events({})
+    host.reads()
+    host.events({ { kind = "tab-changed", tab = behind } })
+    assert(not looked(host), "a tab behind")
+    host.events({ { kind = "tab-changed", tab = host.tab() } })
+    assert(looked(host), "the tab that shows")
+end
+
+function test.a_batch_of_a_new_config_and_a_closed_window_is_taken_whole(host: TestHost)
+    host.set_directory(FOLDER)
+    host.set_git_branch(FOLDER, "main")
+    host.activate()
+    bar(host)
+    host.set_config({ side = "end" })
+    host.events({ { kind = "window-closed", window = host.window() } })
+    assert(host.status_bar_side() == "end")
+    host.done()
+    -- The closed window's view is forgotten, of no render after.
+    host.set_git_branch(FOLDER, "feature/blocks")
+    host.events({ { kind = "tab-changed", tab = host.tab() } })
+    assert(not rendered(host), "a closed window")
 end
 
 function test.a_folder_s_name_is_its_path_s_last_part()

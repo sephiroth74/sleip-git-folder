@@ -48,8 +48,10 @@ local function part(key: string, icon: string, text: string, tooltip: string?): 
     }
 end
 
--- The view of `shown`, as `config` asks for its parts; none of no part.
-function place.node(shown: Shown, config: Config): Node?
+-- The view of `shown`, as `config` asks for its parts; of no part, a part
+-- of no text, unseen, so that the bar keeps its height and the panes their
+-- rows.
+function place.node(shown: Shown, config: Config): Node
     local parts: { Node } = {}
     if config.folder ~= false and shown.folder ~= nil then
         table.insert(parts, part("folder", "folder", place.name(shown.folder), shown.folder))
@@ -58,7 +60,9 @@ function place.node(shown: Shown, config: Config): Node?
         table.insert(parts, part("branch", "git-branch", shown.branch, nil))
     end
     if #parts == 0 then
-        return nil
+        local empty = part("empty", "folder", " ", nil)
+        empty.style = { opacity = 0 }
+        table.insert(parts, empty)
     end
     return {
         kind = "container",
